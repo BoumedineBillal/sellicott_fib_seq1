@@ -14,7 +14,7 @@ module fib (
 
     // module inputs/outputs
     i_n,
-    o_fib,
+    o_fib
 
 );
 parameter WIDTH = 32;
