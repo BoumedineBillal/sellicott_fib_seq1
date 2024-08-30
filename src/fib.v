@@ -15,7 +15,6 @@ module fib (
     // module inputs/outputs
     i_n,
     o_fib
-
 );
 parameter WIDTH = 32;
 localparam [WIDTH-1:0] RESET = 0;
@@ -35,7 +34,6 @@ output wire o_busy;
 input  wire [WIDTH-1:0] i_n;
 output wire [WIDTH-1:0] o_fib;
 
-
 reg [WIDTH-1:0] iteration;
 reg [WIDTH-1:0] prev;
 reg [WIDTH-1:0] current;
@@ -44,10 +42,11 @@ reg [WIDTH-1:0] current;
 reg [WIDTH-1:0] fifo [FIFO_DEPTH-1:0]; //## FIFO memory array
 reg [$clog2(FIFO_DEPTH)-1:0] fifo_ptr; //## FIFO pointer
 
+reg fifo_valid; //## Signal to indicate valid FIFO data
+reg [WIDTH-1:0] fifo_sum; //## To store the sum of FIFO elements
+
 assign o_busy = (iteration != RESET);
 assign o_fib  = current;
-
-
 
 always @(posedge i_clk) begin
     if (i_reset) begin
@@ -55,6 +54,9 @@ always @(posedge i_clk) begin
         prev      <= 1;
         current   <= 0;
         fifo_ptr  <= 0; //## Reset FIFO pointer
+        fifo_valid <= 0; //## Reset FIFO valid signal
+        fifo_sum <= 0; //## Reset FIFO sum
+        // Clear FIFO memory (implicitly done by initialization)
     end
     else if (!o_busy && i_stb) begin
         iteration <= i_n;
@@ -69,6 +71,18 @@ always @(posedge i_clk) begin
         // Shift FIFO and add the new value
         fifo[fifo_ptr] <= current; //## Store current value in FIFO
         fifo_ptr <= (fifo_ptr + 1) % FIFO_DEPTH; //## Increment and wrap FIFO pointer
+
+        fifo_valid <= 1; //## Mark FIFO data as valid after update
+    end
+    else if (fifo_valid) begin
+        // Compute the sum of FIFO elements
+        // Use a shift register approach instead of a for loop
+        integer i;
+        fifo_sum <= fifo[0] + fifo[1] + fifo[2] + fifo[3] + fifo[4] + fifo[5] + fifo[6] + fifo[7]; //## FIFO sum computation
+        
+        // Assign the computed sum to current
+        current <= fifo_sum;
+        fifo_valid <= 0; //## Clear FIFO valid signal after processing
     end
 end
 
