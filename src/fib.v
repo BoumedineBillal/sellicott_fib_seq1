@@ -55,11 +55,6 @@ always @(posedge i_clk) begin
         prev      <= 1;
         current   <= 0;
         fifo_ptr  <= 0; //## Reset FIFO pointer
-        // Clear FIFO memory
-        integer i;
-        for (i = 0; i < FIFO_DEPTH; i = i + 1) begin
-            fifo[i] <= 0;
-        end
     end
     else if (!o_busy && i_stb) begin
         iteration <= i_n;
