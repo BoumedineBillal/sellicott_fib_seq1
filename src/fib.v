@@ -14,12 +14,14 @@ module fib (
 
     // module inputs/outputs
     i_n,
-    o_fib
+    o_fib,
+    o_fib_mem
 );
 parameter WIDTH = 32;
 localparam [WIDTH-1:0] RESET = 0;
 localparam [WIDTH-1:0] ONE   = 1;
-    localparam [WIDTH-1:0] TMP1  = 4;
+localparam [WIDTH-1:0] TMP1  = 4;
+localparam FIFO_DEPTH = 8; //## Define FIFO depth
 
 // global control signals
 input wire i_reset;
@@ -32,30 +34,47 @@ output wire o_busy;
 // module io
 input  wire [WIDTH-1:0] i_n;
 output wire [WIDTH-1:0] o_fib;
+output wire [WIDTH-1:0] o_fib_mem; //## Output for the memory block
 
 reg [WIDTH-1:0] iteration;
 reg [WIDTH-1:0] prev;
 reg [WIDTH-1:0] current;
 
+// FIFO memory to store the last 8 values
+reg [WIDTH-1:0] fifo [FIFO_DEPTH-1:0]; //## FIFO memory array
+reg [$clog2(FIFO_DEPTH)-1:0] fifo_ptr; //## FIFO pointer
+
 assign o_busy = (iteration != RESET);
 assign o_fib  = current;
 
+// The latest FIFO output (most recent value)
+assign o_fib_mem = fifo[fifo_ptr]; //## Provide the current value from FIFO
+
 always @(posedge i_clk) begin
-    if (!o_busy && i_stb) begin
+    if (i_reset) begin
+        iteration <= RESET;
+        prev      <= 1;
+        current   <= 0;
+        fifo_ptr  <= 0; //## Reset FIFO pointer
+        // Clear FIFO memory
+        integer i;
+        for (i = 0; i < FIFO_DEPTH; i = i + 1) begin
+            fifo[i] <= 0;
+        end
+    end
+    else if (!o_busy && i_stb) begin
         iteration <= i_n;
-        prev    [WIDTH-1:0] <= 1;
-        current [WIDTH-1:0] <= 0;
+        prev      <= 1;
+        current   <= 0;
     end
     else if (o_busy) begin
         iteration <= iteration - ONE;
         current   <= prev * prev + current * current - prev * TMP1 - current * TMP1;
         prev      <= current + TMP1;
-    end
-
-    if (i_reset) begin
-        iteration <= RESET;
-        prev    [WIDTH-1:0] <= 1;
-        current [WIDTH-1:0] <= 0;
+        
+        // Shift FIFO and add the new value
+        fifo[fifo_ptr] <= current; //## Store current value in FIFO
+        fifo_ptr <= (fifo_ptr + 1) % FIFO_DEPTH; //## Increment and wrap FIFO pointer
     end
 end
 
