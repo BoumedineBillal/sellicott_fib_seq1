@@ -15,7 +15,7 @@ module fib (
     // module inputs/outputs
     i_n,
     o_fib,
-    o_fib_mem
+
 );
 parameter WIDTH = 32;
 localparam [WIDTH-1:0] RESET = 0;
@@ -34,7 +34,7 @@ output wire o_busy;
 // module io
 input  wire [WIDTH-1:0] i_n;
 output wire [WIDTH-1:0] o_fib;
-output wire [WIDTH-1:0] o_fib_mem; //## Output for the memory block
+
 
 reg [WIDTH-1:0] iteration;
 reg [WIDTH-1:0] prev;
@@ -47,8 +47,7 @@ reg [$clog2(FIFO_DEPTH)-1:0] fifo_ptr; //## FIFO pointer
 assign o_busy = (iteration != RESET);
 assign o_fib  = current;
 
-// The latest FIFO output (most recent value)
-assign o_fib_mem = fifo[fifo_ptr]; //## Provide the current value from FIFO
+
 
 always @(posedge i_clk) begin
     if (i_reset) begin
