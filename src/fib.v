@@ -19,6 +19,7 @@ module fib (
 parameter WIDTH = 32;
 localparam [WIDTH-1:0] RESET = 0;
 localparam [WIDTH-1:0] ONE   = 1;
+    localparam [WIDTH-1:0] TMP1  = 4;
 
 // global control signals
 input wire i_reset;
@@ -47,8 +48,8 @@ always @(posedge i_clk) begin
     end
     else if (o_busy) begin
         iteration <= iteration - ONE;
-        current   <= prev + current;
-        prev      <= current;
+        current   <= prev * prev + current * current - prev * TMP1 - current * TMP1;
+        prev      <= current + TMP1;
     end
 
     if (i_reset) begin
