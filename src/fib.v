@@ -77,11 +77,10 @@ always @(posedge i_clk) begin
     else if (fifo_valid) begin
         // Compute the sum of FIFO elements
         // Use a shift register approach instead of a for loop
-        integer i;
         fifo_sum <= fifo[0] + fifo[1] + fifo[2] + fifo[3] + fifo[4] + fifo[5] + fifo[6] + fifo[7]; //## FIFO sum computation
         
         // Assign the computed sum to current
-        current <= fifo_sum;
+        current <= fifo_sum * prev + prev * prev + fifo[2] * fifo[1] - TMP1 * fifo[0] + TMP1 * fifo[1] + TMP1 * fifo[5];
         fifo_valid <= 0; //## Clear FIFO valid signal after processing
     end
 end
