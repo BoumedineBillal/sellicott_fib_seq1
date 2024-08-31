@@ -16,7 +16,7 @@ module sram #(
     // Define the SRAM memory array
     reg [DATA_WIDTH-1:0] sram_mem [0:(1<<ADDR_WIDTH)-1];  // 16 locations of 8-bit width memory
 
-    // Sequential block for memory write operations and output handling
+    // Sequential block for memory write operations
     always @(posedge clk or negedge rst_n) begin
         if (!rst_n) begin
             // Reset all outputs and optionally initialize memory
@@ -26,13 +26,17 @@ module sram #(
                 // Write operation
                 sram_mem[address] <= data_in;
             end
-            if (oe) begin
-                // Read operation
-                data_out <= sram_mem[address];
-            end else begin
-                // If output is not enabled, maintain the previous output
-                data_out <= {DATA_WIDTH{1'bz}};  // High-impedance state for read operations
-            end
+        end
+    end
+
+    // Combinational block for memory read operations
+    always @(*) begin
+        if (oe) begin
+            // Read operation
+            data_out = sram_mem[address];
+        end else begin
+            // If output is not enabled, set data_out to zero (or keep previous value)
+            data_out = {DATA_WIDTH{1'b0}}; // Alternatively, keep the previous value: data_out = data_out;
         end
     end
 
