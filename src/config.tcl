@@ -30,12 +30,12 @@ set ::env(LINTER_INCLUDE_PDK_MODELS) 1
 # https://tinytapeout.com/faq/#how-can-i-map-an-additional-external-clock-to-one-of-the-gpios
 set ::env(CLOCK_PORT) {clk}
 
-# Configuration docs: https://openlane.readthedocs.io/en/latest/reference/configuration.html
+# SRAM Macro Paths
+# Update these paths according to where you have placed the SRAM macro files
+set ::env(SRAM_LEF_PATH) "libs/sky130_sram_macros/lef"
+set ::env(SRAM_LIB_PATH) "libs/sky130_sram_macros/lib"
 
-# Include sky130_sram_macros
-set ::env(LIB_SRAM) "$::env(DESIGN_DIR)/libs/sky130_sram_macros"
-add_lefs -path $::env(LIB_SRAM)/lef
-add_libs -path $::env(LIB_SRAM)/lib
+# Configuration docs: https://openlane.readthedocs.io/en/latest/reference/configuration.html
 
 # !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 # !!! DO NOT CHANGE ANYTHING BELOW THIS POINT !!!
