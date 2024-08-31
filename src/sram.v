@@ -10,54 +10,21 @@ module sram #(
     input  wire                  oe,        // Output Enable (active high)
     input  wire [ADDR_WIDTH-1:0] address,   // Address input
     input  wire [DATA_WIDTH-1:0] data_in,   // Data input for write operations
-    output reg  [DATA_WIDTH-1:0] data_out   // Data output for read operations
+    output wire [DATA_WIDTH-1:0] data_out   // Data output for read operations
 );
 
-    // Define the SRAM memory array
-    reg [DATA_WIDTH-1:0] sram_mem [0:(1<<ADDR_WIDTH)-1];  // 16x8-bit memory
+    // Instantiate the SkyWater SKY130 2kb SRAM macro (256 x 8 bits)
+    sky130_sram_2kbyte_1rw1r_8x256_8 sram_inst (
+        .clk0(clk),                // Clock input
+        .csb0(~(we | oe)),         // Chip select, active low (disabled when both we and oe are low)
+        .web0(~we),                // Write enable, active low
+        .addr0(address),           // Address input
+        .din0(data_in),            // Data input
+        .dout0(data_out)           // Data output
+    );
 
-    // Internal wire to hold the selected memory value
-    reg [DATA_WIDTH-1:0] selected_data;
-
-    // Combinational logic for read operation using a multiplexer
-    always @(*) begin
-        case (address)
-            4'h0: selected_data = sram_mem[0];
-            4'h1: selected_data = sram_mem[1];
-            4'h2: selected_data = sram_mem[2];
-            4'h3: selected_data = sram_mem[3];
-            4'h4: selected_data = sram_mem[4];
-            4'h5: selected_data = sram_mem[5];
-            4'h6: selected_data = sram_mem[6];
-            4'h7: selected_data = sram_mem[7];
-            4'h8: selected_data = sram_mem[8];
-            4'h9: selected_data = sram_mem[9];
-            4'hA: selected_data = sram_mem[10];
-            4'hB: selected_data = sram_mem[11];
-            4'hC: selected_data = sram_mem[12];
-            4'hD: selected_data = sram_mem[13];
-            4'hE: selected_data = sram_mem[14];
-            4'hF: selected_data = sram_mem[15];
-            default: selected_data = 8'b00000000; // Default case for unused address
-        endcase
-    end
-
-    // Sequential block for read and write operations
-    always @(posedge clk or negedge rst_n) begin
-        if (!rst_n) begin
-            data_out <= 8'b00000000; // Reset data output to 0
-        end else begin
-            if (we) begin
-                // Write operation
-                sram_mem[address] <= data_in;
-            end
-            if (oe) begin
-                // Output the selected data based on the address
-                data_out <= selected_data;
-            end else begin
-                data_out <= 8'b00000000; // Clear output if not enabled
-            end
-        end
-    end
+    // Optional: Handle reset by gating the data_out signal
+    // If reset is needed for your design, you can add additional logic here.
+    // However, in typical SRAM usage, reset does not affect the stored data.
 
 endmodule
