@@ -31,9 +31,12 @@ set ::env(LINTER_INCLUDE_PDK_MODELS) 1
 set ::env(CLOCK_PORT) {clk}
 
 # SRAM Macro Paths
-# Update these paths according to where you have placed the SRAM macro files
-set ::env(SRAM_LEF_PATH) "libs/sky130_sram_macros/lef"
-set ::env(SRAM_LIB_PATH) "libs/sky130_sram_macros/lib"
+# Set the directory for SRAM macros
+set ::env(LIB_DIR) "libs/sky130_sram_macros"
+# Include SRAM macro files
+set ::env(SYNTH_READ_BLACKBOX_LIB) 1
+set ::env(SYNTH_BLACKBOX_LIB_PATH) [file join $::env(LIB_DIR) "sky130_sram_1kbyte_1rw1r_32x256_8/sky130_sram_1kbyte_1rw1r_32x256_8.v"]
+
 
 # Configuration docs: https://openlane.readthedocs.io/en/latest/reference/configuration.html
 
