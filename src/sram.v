@@ -14,7 +14,7 @@ module sram #(
 );
 
     // Instantiate the SkyWater SKY130 2kb SRAM macro (256 x 8 bits)
-    sky130_sram_2kbyte_1rw1r_8x256_8 sram_inst (
+    sram_1rw1r_32_256_8_sky130 sram_inst ( //  sky130_sram_2kbyte_1rw1r_8x256_8
         .clk0(clk),                // Clock input
         .csb0(~(we | oe)),         // Chip select, active low (disabled when both we and oe are low)
         .web0(~we),                // Write enable, active low
