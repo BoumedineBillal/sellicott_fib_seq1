@@ -1,33 +1,39 @@
 `default_nettype none
 
 module sram #(
-    parameter ADDR_WIDTH = 4,
-    parameter DATA_WIDTH = 8
+    parameter ADDR_WIDTH = 4,         // 4-bit address, supporting 16 memory locations
+    parameter DATA_WIDTH = 8          // 8-bit data width
 )(
-    input  wire                  clk,
-    input  wire                  rst_n,
-    input  wire                  we,      // Write Enable
-    input  wire                  oe,      // Output Enable
-    input  wire [ADDR_WIDTH-1:0] address, // Address input
-    input  wire [DATA_WIDTH-1:0] data_in, // Data input
-    output reg  [DATA_WIDTH-1:0] data_out // Data output
+    input  wire                  clk,       // Clock signal
+    input  wire                  rst_n,     // Active low reset signal
+    input  wire                  we,        // Write Enable signal (active high)
+    input  wire                  oe,        // Output Enable signal (active high)
+    input  wire [ADDR_WIDTH-1:0] address,   // Address input
+    input  wire [DATA_WIDTH-1:0] data_in,   // Data input for write operations
+    output reg  [DATA_WIDTH-1:0] data_out   // Data output for read operations
 );
 
     // Define the SRAM memory array
-    reg [DATA_WIDTH-1:0] sram_mem [0:(1<<ADDR_WIDTH)-1];
+    reg [DATA_WIDTH-1:0] sram_mem [0:(1<<ADDR_WIDTH)-1];  // 16 locations of 8-bit width memory
 
+    // Sequential block for memory write operations and output handling
     always @(posedge clk or negedge rst_n) begin
         if (!rst_n) begin
-            // Optional: Initialize memory or do something on reset
-            data_out <= 0;
-        end else if (we) begin
-            // Write operation
-            sram_mem[address] <= data_in;
-        end else if (oe) begin
-            // Read operation
-            data_out <= sram_mem[address];
+            // Reset all outputs and optionally initialize memory
+            data_out <= {DATA_WIDTH{1'b0}};
+        end else begin
+            if (we) begin
+                // Write operation
+                sram_mem[address] <= data_in;
+            end
+            if (oe) begin
+                // Read operation
+                data_out <= sram_mem[address];
+            end else begin
+                // If output is not enabled, maintain the previous output
+                data_out <= {DATA_WIDTH{1'bz}};  // High-impedance state for read operations
+            end
         end
     end
 
 endmodule
-
