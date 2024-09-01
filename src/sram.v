@@ -1,6 +1,6 @@
 `default_nettype none
 
-module simple_sram #(
+module sram #(
     parameter ADDR_WIDTH = 4,         // Address width (4 bits for 16 addresses)
     parameter DATA_WIDTH = 8          // Data width (8 bits)
 )(
