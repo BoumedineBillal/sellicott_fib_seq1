@@ -32,7 +32,7 @@ set ::env(CLOCK_PORT) {clk}
 
 # SRAM Macro Paths
 # Set the directory for SRAM macros
-set ::env(LIB_DIR) "libs/sky130_sram_macros"
+set ::env(LIB_DIR) "src/libs/sky130_sram_macros"
 # Include SRAM macro files
 set ::env(SYNTH_READ_BLACKBOX_LIB) 1
 set ::env(SYNTH_BLACKBOX_LIB_PATH) [file join $::env(LIB_DIR) "sky130_sram_1kbyte_1rw1r_32x256_8/sky130_sram_1kbyte_1rw1r_32x256_8.v"]
