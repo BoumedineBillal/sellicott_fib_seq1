@@ -14,7 +14,7 @@ module sram #(
 );
 
     // Internal 32-bit signal to match the SRAM module's dout0 width
-    reg [31:0] internal_data_out;
+    wire [31:0] sram_data_out;
 
     // Instantiate the SRAM macro with the adjusted address and data widths
     sky130_sram_1kbyte_1rw1r_32x256_8 sram_inst (
@@ -24,7 +24,7 @@ module sram #(
         .wmask0(4'b0001),      // Write mask for Port 0 (write the first byte only)
         .addr0 ({4'b0000, address}),  // Adjusted address to match the 8-bit address input (4 MSB zeros)
         .din0  ({24'b0, data_in}),    // Adjusted data input (upper 24 bits zeroed out)
-        .dout0 (internal_data_out),   // Internal data output (32 bits)
+        .dout0 (sram_data_out),       // Internal data output (32 bits)
         .clk1  (clk),          // Clock for Port 1
         .csb1  (1'b1),         // Chip select for Port 1 (not used, active high)
         .addr1 ({4'b0000, address}),  // Adjusted address for Port 1 (not used)
@@ -34,11 +34,10 @@ module sram #(
     // Output assignment
     always @(posedge clk) begin
         if (oe) begin
-            data_out <= internal_data_out[7:0];  // Take only the relevant 8 bits from the 32-bit output
+            data_out <= sram_data_out[7:0];  // Take only the relevant 8 bits from the 32-bit output
         end else begin
             data_out <= 8'b0;  // Clear data output when oe is low
         end
     end
 
 endmodule
-
