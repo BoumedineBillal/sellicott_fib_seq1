@@ -1,6 +1,6 @@
 `default_nettype none
 
-module sram #(
+module simple_sram #(
     parameter ADDR_WIDTH = 4,         // Address width (4 bits for 16 addresses)
     parameter DATA_WIDTH = 8          // Data width (8 bits)
 )(
@@ -13,30 +13,22 @@ module sram #(
     output reg  [DATA_WIDTH-1:0] data_out   // Data output for read operations (8 bits)
 );
 
-    // Internal 32-bit signal to match the SRAM module's dout0 width
-    reg [31:0] internal_data_out;
+    // Define the SRAM memory array
+    reg [DATA_WIDTH-1:0] mem [0:(2**ADDR_WIDTH)-1];
 
-    // Instantiate the SRAM macro with the adjusted address and data widths
-    sky130_sram_1kbyte_1rw1r_32x256_8 sram_inst (
-        .clk0  (clk),          // Clock for Port 0
-        .csb0  (~rst_n),       // Chip select for Port 0 (active low, use reset signal for simplicity)
-        .web0  (~we),          // Write Enable for Port 0 (active low, negate write enable)
-        .wmask0(4'b0001),      // Write mask for Port 0 (write the first byte only)
-        .addr0 ({4'b0000, address}),  // Adjusted address to match the 8-bit address input (4 MSB zeros)
-        .din0  ({24'b0, data_in}),    // Adjusted data input (upper 24 bits zeroed out)
-        .dout0 (internal_data_out),   // Internal data output (32 bits)
-        .clk1  (clk),          // Clock for Port 1
-        .csb1  (1'b1),         // Chip select for Port 1 (not used, active high)
-        .addr1 ({4'b0000, address}),  // Adjusted address for Port 1 (not used)
-        .dout1 ()              // Data output for Port 1 (not used)
-    );
-
-    // Output assignment using non-blocking assignment
-    always @(posedge clk) begin
+    // Memory Read/Write Operation
+    always @(posedge clk or negedge rst_n) begin
+        if (!rst_n) begin
+            // Reset output to 0 on reset
+            data_out <= {DATA_WIDTH{1'b0}};
+        end else if (we) begin
+            // Write operation
+            mem[address] <= data_in;
+        end
+        
+        // Read operation
         if (oe) begin
-            data_out <= internal_data_out[7:0];  // Take only the relevant 8 bits from the 32-bit output
-        end else begin
-            data_out <= 8'b0;  // Clear data output when oe is low
+            data_out <= mem[address];
         end
     end
 
