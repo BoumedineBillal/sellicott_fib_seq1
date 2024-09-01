@@ -13,8 +13,8 @@ module sram #(
     output reg  [DATA_WIDTH-1:0] data_out   // Data output for read operations (8 bits)
 );
 
-    // Internal signals
-    reg [DATA_WIDTH-1:0] internal_data_out;
+    // Internal 32-bit signal to match the SRAM module's dout0 width
+    reg [31:0] internal_data_out;
 
     // Instantiate the SRAM macro with the adjusted address and data widths
     sky130_sram_1kbyte_1rw1r_32x256_8 sram_inst (
@@ -34,10 +34,11 @@ module sram #(
     // Output assignment
     always @(posedge clk) begin
         if (oe) begin
-            data_out <= internal_data_out[7:0];  // Take only the relevant 8 bits
+            data_out <= internal_data_out[7:0];  // Take only the relevant 8 bits from the 32-bit output
         end else begin
-            data_out <= 8'b0;
+            data_out <= 8'b0;  // Clear data output when oe is low
         end
     end
 
 endmodule
+
