@@ -14,6 +14,7 @@ project:
   source_files:
     - "tt_um_yourname_sram.v"          # Source file for the top module
     - "sram.v"                         # Source file for the SRAM module
+    - "src/libs/sky130_sram_macros/sky130_sram_1kbyte_1rw1r_32x256_8/sky130_sram_1kbyte_1rw1r_32x256_8.v"
 
 pinout:
   # Inputs
