@@ -4,6 +4,15 @@
 *.vcd
 *.vvp
 *.dot
+
+# Ignore temporary files and build artifacts
+*.log
+*.tmp
+*.swp
+
+# Ensure SRAM macro library is not ignored
+!libs/sky130_sram_macros/
+
 .python-version
 runs
 tt_submission
