@@ -24,6 +24,7 @@ module riscv_core #(
     // Program counter (16-bit, byte-addressed)
     reg [15:0] pc;
     reg        halt_flag;
+    integer i;  // Loop variable for initialization
 
     // Instruction memory (32 x 16-bit)
     reg [15:0] imem [0:IMEM_SIZE-1];
@@ -161,7 +162,6 @@ module riscv_core #(
             pc <= 16'd0;
             halt_flag <= 1'b0;
             // Initialize registers
-            integer i;
             for (i = 0; i < 16; i = i + 1) begin
                 registers[i] <= 16'd0;
             end
