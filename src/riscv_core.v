@@ -1,226 +1,73 @@
-// Simple 32-bit RISC-V Core (RV32I subset)
-// Single-cycle implementation with minimal instruction memory
+// Tiny 8-bit RISC-V-inspired Core
+// Minimal design to fit Tiny Tapeout constraints
 
 `default_nettype none
 
-module riscv_core #(
-    parameter IMEM_SIZE = 64  // Number of 32-bit instruction words
-)(
+module riscv_core (
     input  wire        clk,
     input  wire        rst_n,
     input  wire        enable,
-
-    // Instruction memory interface
-    input  wire [31:0] imem_data_in,
-    input  wire        imem_we,
-    input  wire [7:0]  imem_addr,
-
-    // Data output (for debugging/monitoring)
-    output wire [31:0] pc_out,
-    output wire [31:0] alu_result_out,
-    output wire [4:0]  rd_addr_out,
-    output wire        halted
+    input  wire [7:0]  instruction,
+    output wire [7:0]  result,
+    output wire [2:0]  pc_out
 );
 
-    // Program counter
-    reg [31:0] pc;
-    reg        halt_flag;
+    // Minimal 8-entry x 8-bit register file
+    reg [7:0] registers [7:0];
 
-    // Instruction memory
-    reg [31:0] imem [0:IMEM_SIZE-1];
-    wire [31:0] instruction;
+    // 3-bit program counter (8 instructions max)
+    reg [2:0] pc;
 
     // Instruction decode
-    wire [6:0] opcode;
-    wire [4:0] rd, rs1, rs2;
-    wire [2:0] funct3;
-    wire [6:0] funct7;
-    wire [31:0] imm_i, imm_s, imm_b, imm_u, imm_j;
+    wire [1:0] opcode = instruction[7:6];
+    wire [2:0] rd     = instruction[5:3];
+    wire [2:0] rs     = instruction[2:0];
 
-    // Control signals
-    reg [3:0]  alu_op;
-    reg        reg_we;
-    reg        alu_src;      // 0: rs2, 1: immediate
-    reg        pc_src;       // 0: pc+4, 1: branch/jump target
-    reg [1:0]  wb_sel;       // Write-back select: 00=ALU, 01=PC+4, 10=imm
+    // Simple operations
+    localparam OP_ADD = 2'b00;
+    localparam OP_SUB = 2'b01;
+    localparam OP_AND = 2'b10;
+    localparam OP_OR  = 2'b11;
 
-    // Datapath signals
-    wire [31:0] rs1_data, rs2_data;
-    wire [31:0] alu_operand_b;
-    wire [31:0] alu_result;
-    wire        alu_zero;
-    wire [31:0] rd_data;
-    wire [31:0] pc_plus_4;
-    wire [31:0] pc_target;
+    // ALU result
+    reg [7:0] alu_out;
 
-    // Fetch instruction from memory
-    assign instruction = imem[pc[7:2]];  // Word-aligned access
-
-    // Instruction decode
-    assign opcode = instruction[6:0];
-    assign rd     = instruction[11:7];
-    assign funct3 = instruction[14:12];
-    assign rs1    = instruction[19:15];
-    assign rs2    = instruction[24:20];
-    assign funct7 = instruction[31:25];
-
-    // Immediate generation
-    assign imm_i = {{20{instruction[31]}}, instruction[31:20]};
-    assign imm_s = {{20{instruction[31]}}, instruction[31:25], instruction[11:7]};
-    assign imm_b = {{19{instruction[31]}}, instruction[31], instruction[7], instruction[30:25], instruction[11:8], 1'b0};
-    assign imm_u = {instruction[31:12], 12'b0};
-    assign imm_j = {{11{instruction[31]}}, instruction[31], instruction[19:12], instruction[20], instruction[30:21], 1'b0};
-
-    // Register file
-    riscv_regfile regfile (
-        .clk(clk),
-        .rst_n(rst_n),
-        .rs1_addr(rs1),
-        .rs2_addr(rs2),
-        .rd_addr(rd),
-        .rd_data(rd_data),
-        .rd_we(reg_we && !halt_flag),
-        .rs1_data(rs1_data),
-        .rs2_data(rs2_data)
-    );
-
-    // ALU operand selection
-    assign alu_operand_b = alu_src ? imm_i : rs2_data;
-
-    // ALU
-    riscv_alu alu (
-        .operand_a(rs1_data),
-        .operand_b(alu_operand_b),
-        .alu_op(alu_op),
-        .result(alu_result),
-        .zero(alu_zero)
-    );
-
-    // Write-back data selection
-    assign rd_data = (wb_sel == 2'b00) ? alu_result :
-                     (wb_sel == 2'b01) ? pc_plus_4 :
-                     (wb_sel == 2'b10) ? imm_u : 32'd0;
-
-    // PC calculation
-    assign pc_plus_4 = pc + 32'd4;
-    assign pc_target = pc + imm_b;  // For branches
-
-    // Control logic
+    // Compute ALU result
     always @(*) begin
-        // Default control signals
-        alu_op = 4'b0000;
-        reg_we = 1'b0;
-        alu_src = 1'b0;
-        pc_src = 1'b0;
-        wb_sel = 2'b00;
-
         case (opcode)
-            // R-type instructions (ADD, SUB, AND, OR, XOR, SLT, SLL, SRL, SRA)
-            7'b0110011: begin
-                reg_we = 1'b1;
-                alu_src = 1'b0;
-                wb_sel = 2'b00;
-                case (funct3)
-                    3'b000: alu_op = (funct7[5]) ? 4'b0001 : 4'b0000; // SUB : ADD
-                    3'b111: alu_op = 4'b0010; // AND
-                    3'b110: alu_op = 4'b0011; // OR
-                    3'b100: alu_op = 4'b0100; // XOR
-                    3'b010: alu_op = 4'b0101; // SLT
-                    3'b011: alu_op = 4'b0110; // SLTU
-                    3'b001: alu_op = 4'b0111; // SLL
-                    3'b101: alu_op = (funct7[5]) ? 4'b1001 : 4'b1000; // SRA : SRL
-                    default: alu_op = 4'b0000;
-                endcase
-            end
-
-            // I-type instructions (ADDI, ANDI, ORI, XORI, SLTI, SLTIU)
-            7'b0010011: begin
-                reg_we = 1'b1;
-                alu_src = 1'b1;
-                wb_sel = 2'b00;
-                case (funct3)
-                    3'b000: alu_op = 4'b0000; // ADDI
-                    3'b111: alu_op = 4'b0010; // ANDI
-                    3'b110: alu_op = 4'b0011; // ORI
-                    3'b100: alu_op = 4'b0100; // XORI
-                    3'b010: alu_op = 4'b0101; // SLTI
-                    3'b011: alu_op = 4'b0110; // SLTIU
-                    default: alu_op = 4'b0000;
-                endcase
-            end
-
-            // LUI (Load Upper Immediate)
-            7'b0110111: begin
-                reg_we = 1'b1;
-                wb_sel = 2'b10;
-            end
-
-            // AUIPC (Add Upper Immediate to PC)
-            7'b0010111: begin
-                reg_we = 1'b1;
-                wb_sel = 2'b00;
-                alu_src = 1'b1;
-            end
-
-            // JAL (Jump and Link)
-            7'b1101111: begin
-                reg_we = 1'b1;
-                wb_sel = 2'b01;
-                pc_src = 1'b1;
-            end
-
-            // BEQ, BNE (Branch instructions - simplified)
-            7'b1100011: begin
-                case (funct3)
-                    3'b000: pc_src = (rs1_data == rs2_data);      // BEQ
-                    3'b001: pc_src = (rs1_data != rs2_data);      // BNE
-                    3'b100: pc_src = ($signed(rs1_data) < $signed(rs2_data));  // BLT
-                    3'b101: pc_src = ($signed(rs1_data) >= $signed(rs2_data)); // BGE
-                    default: pc_src = 1'b0;
-                endcase
-            end
-
-            default: begin
-                // NOP or unsupported instruction
-                reg_we = 1'b0;
-            end
+            OP_ADD:  alu_out = registers[rd] + registers[rs];
+            OP_SUB:  alu_out = registers[rd] - registers[rs];
+            OP_AND:  alu_out = registers[rd] & registers[rs];
+            OP_OR:   alu_out = registers[rd] | registers[rs];
+            default: alu_out = 8'd0;
         endcase
     end
 
-    // PC update
+    // Execute and update registers
     always @(posedge clk or negedge rst_n) begin
         if (!rst_n) begin
-            pc <= 32'd0;
-            halt_flag <= 1'b0;
-        end else if (enable && !halt_flag) begin
-            if (pc_src) begin
-                if (opcode == 7'b1101111) // JAL
-                    pc <= pc + imm_j;
-                else  // Branch
-                    pc <= pc_target;
-            end else begin
-                pc <= pc_plus_4;
+            pc <= 3'd0;
+            registers[0] <= 8'd0;
+            registers[1] <= 8'd5;   // Initialize r1 = 5
+            registers[2] <= 8'd3;   // Initialize r2 = 3
+            registers[3] <= 8'd0;
+            registers[4] <= 8'd0;
+            registers[5] <= 8'd0;
+            registers[6] <= 8'd0;
+            registers[7] <= 8'd0;
+        end else if (enable) begin
+            // Write result to destination register
+            if (rd != 3'd0) begin  // r0 is read-only zero
+                registers[rd] <= alu_out;
             end
 
-            // Halt on infinite loop or end of memory
-            if (pc >= (IMEM_SIZE * 4) || instruction == 32'h00000013) begin
-                halt_flag <= 1'b1;
-            end
+            // Increment PC
+            pc <= pc + 3'd1;
         end
     end
 
-    // Instruction memory write
-    always @(posedge clk) begin
-        if (imem_we && imem_addr < IMEM_SIZE) begin
-            imem[imem_addr] <= imem_data_in;
-        end
-    end
-
-    // Debug outputs
+    assign result = alu_out;
     assign pc_out = pc;
-    assign alu_result_out = alu_result;
-    assign rd_addr_out = rd;
-    assign halted = halt_flag;
 
 endmodule
 
