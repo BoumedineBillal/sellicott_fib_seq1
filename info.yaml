@@ -7,7 +7,7 @@ project:
   language:     "Verilog"                    # Language used
 
   clock_hz:     50000000                     # Clock frequency in Hz (50 MHz)
-  tiles:        "2x2"                        # Tile size (4x area for larger design)
+  tiles:        "3x2"                        # Tile size (6x area for maximum design space)
 
   top_module:   "tt_um_riscv_core"           # Top module name (must start with tt_um_)
 
