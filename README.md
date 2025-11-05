@@ -1,32 +1,31 @@
 ![](../../workflows/gds/badge.svg) ![](../../workflows/docs/badge.svg) ![](../../workflows/test/badge.svg)
 
-# Simple 32-bit RISC-V Core for Tiny Tapeout
+# 16-bit RISC-V Core for Tiny Tapeout
 
-A minimal 32-bit RISC-V processor core implementing a subset of the RV32I instruction set, designed to fit within a Tiny Tapeout tile.
+A compact 16-bit RISC-V processor core implementing a simplified instruction set, designed to fit within Tiny Tapeout's 3x2 tile configuration.
 
 ## Features
 
-- **Architecture**: 32-bit RISC-V (RV32I subset)
+- **Architecture**: 16-bit RISC-V-inspired design
 - **Design**: Single-cycle execution
-- **Register File**: 32 x 32-bit registers (x0 hardwired to 0)
-- **ALU Operations**: ADD, SUB, AND, OR, XOR, SLT, SLTU, SLL, SRL, SRA
+- **Register File**: 16 x 16-bit registers (x0 hardwired to 0)
+- **ALU Operations**: ADD, SUB, AND, OR, XOR, SLL (Shift Left Logical)
 - **Instructions Supported**:
-  - R-type: ADD, SUB, AND, OR, XOR, SLT, SLTU, SLL, SRL, SRA
-  - I-type: ADDI, ANDI, ORI, XORI, SLTI, SLTIU
-  - U-type: LUI, AUIPC
-  - B-type: BEQ, BNE, BLT, BGE
-  - J-type: JAL
-- **Internal Instruction Memory**: 64 x 32-bit words (256 bytes)
+  - R-type: ADD, SUB, AND, OR, XOR, SLL (operation encoded in rs2 field)
+  - I-type: ADDI (Add Immediate)
+  - U-type: LUI (Load Upper Immediate)
+  - B-type: BEQ (Branch if Equal), BNE (Branch if Not Equal)
+  - J-type: JAL (Jump and Link)
+- **Internal Instruction Memory**: 32 x 16-bit words (64 bytes)
 - **Clock Frequency**: 50 MHz (20ns period)
+- **Tile Configuration**: 3x2 (6x standard tile area, ~6000 standard cells)
 
 ## Architecture
 
-The core consists of four main modules:
+The core is implemented as a single integrated module for area efficiency:
 
-1. **riscv_core.v**: Main processor with fetch, decode, execute stages
-2. **riscv_alu.v**: Arithmetic Logic Unit
-3. **riscv_regfile.v**: 32-register file with x0 hardwired to zero
-4. **tt_um_riscv_core.v**: Tiny Tapeout wrapper for I/O mapping
+1. **riscv_core.v**: Complete processor with fetch, decode, execute, and writeback
+2. **tt_um_riscv_core.v**: Tiny Tapeout wrapper for I/O mapping
 
 ### Block Diagram
 
@@ -37,25 +36,47 @@ The core consists of four main modules:
 │  │  RISC-V Core (riscv_core)                 │ │
 │  │  ┌──────────┐  ┌──────────┐  ┌─────────┐ │ │
 │  │  │ Register │  │   ALU    │  │ Control │ │ │
-│  │  │   File   │  │          │  │  Logic  │ │ │
+│  │  │ File 16x │  │  6 ops   │  │  Logic  │ │ │
+│  │  │  16-bit  │  │          │  │         │ │ │
 │  │  └──────────┘  └──────────┘  └─────────┘ │ │
 │  │  ┌────────────────────────────────────┐   │ │
-│  │  │  Instruction Memory (64 words)     │   │ │
+│  │  │  Instruction Memory (32 words)     │   │ │
 │  │  └────────────────────────────────────┘   │ │
 │  └───────────────────────────────────────────┘ │
 └─────────────────────────────────────────────────┘
 ```
 
+## Instruction Format
+
+16-bit compressed instruction format:
+
+```
+R-type: [opcode:4][rd:4][rs1:4][rs2:4]
+I-type: [opcode:4][rd:4][rs1:4][imm:4]
+U-type: [opcode:4][rd:4][imm:8]
+B-type: [opcode:4][----:4][rs1:4][rs2:4]  (imm in upper bits)
+J-type: [opcode:4][rd:4][imm:8]
+```
+
+### Opcodes
+
+- `0000`: R-type (operation in rs2: 0=ADD, 1=SUB, 2=AND, 3=OR, 4=XOR, 5=SLL)
+- `0001`: ADDI (Add Immediate)
+- `0010`: LUI (Load Upper Immediate)
+- `0011`: BEQ (Branch if Equal)
+- `0100`: BNE (Branch if Not Equal)
+- `0101`: JAL (Jump and Link)
+
 ## I/O Interface
 
-The design uses Tiny Tapeout's limited I/O pins through a serial instruction loading interface:
+The design uses Tiny Tapeout's I/O pins through a serial instruction loading interface:
 
 ### Input Pins (ui_in[7:0])
 - **ui_in[7:6]**: Mode select
   - `00`: Run mode (execute instructions)
-  - `01`: Load instruction byte 0 (LSB)
-  - `10`: Load instruction byte 1
-  - `11`: Load instruction bytes 2-3 and commit
+  - `01`: Load instruction low byte
+  - `10`: Load instruction high byte
+  - `11`: Reserved
 - **ui_in[5:0]**: Data/address input (mode-dependent)
 
 ### Output Pins (uo_out[7:0])
@@ -70,25 +91,22 @@ The design uses Tiny Tapeout's limited I/O pins through a serial instruction loa
   - `01`: Show PC[15:8]
   - `10`: Show ALU result[7:0]
   - `11`: Show ALU result[15:8]
-- **uio_out[6:2]**: Destination register address (rd) (output mode)
 - **uio_out[7]**: Halt flag (output mode)
 
 ## Usage
 
 ### Loading Instructions
 
-Instructions must be loaded into internal memory before execution. Each 32-bit instruction requires 4 loading cycles:
+Instructions must be loaded into internal memory before execution. Each 16-bit instruction requires 2 loading cycles:
 
-1. Set mode to `01` and provide bits [5:0] of instruction
-2. Set mode to `10` and provide bits [13:8] of instruction
-3. Set mode to `11` and provide bits [21:16] of instruction
-4. Set mode to `11` and provide bits [29:24] of instruction (triggers write)
+1. Set mode to `01` and provide low byte [7:0] via ui_in[5:0] + address
+2. Set mode to `10` and provide high byte [15:8]
 
 ### Running Programs
 
 After loading instructions, set mode to `00` to begin execution. The processor will execute until:
-- It reaches the end of instruction memory
-- It encounters a NOP instruction (`0x00000013`)
+- It reaches the end of instruction memory (PC >= 64)
+- It encounters a NOP instruction (`0x0000`)
 - The halt flag is set
 
 ### Example Program
@@ -103,22 +121,22 @@ AND  x5, x1, x2     # x5 = x1 & x2 = 1
 NOP                 # Halt
 ```
 
-Encoded instructions:
+Encoded instructions (16-bit):
 ```
-0x00500093  # ADDI x1, x0, 5
-0x00300113  # ADDI x2, x0, 3
-0x002081B3  # ADD x3, x1, x2
-0x40208233  # SUB x4, x1, x2
-0x0020F2B3  # AND x5, x1, x2
-0x00000013  # NOP (halt)
+0x1105  # ADDI x1, x0, 5
+0x1203  # ADDI x2, x0, 3
+0x0312  # ADD x3, x1, x2 (R-type, op=0)
+0x0421  # SUB x4, x1, x2 (R-type, op=1)
+0x0522  # AND x5, x1, x2 (R-type, op=2)
+0x0000  # NOP (halt)
 ```
 
 ## Testing
 
 The project includes both Verilog and cocotb Python testbenches:
 
-- **test/tb_riscv.v**: Verilog testbench for Icarus Verilog simulation
-- **test/test_riscv.py**: cocotb Python testbench for GitHub Actions
+- **test/tb.v**: Verilog testbench for simulation
+- **test/test.py**: cocotb Python testbench for GitHub Actions
 
 ### Running Tests Locally
 
@@ -135,7 +153,7 @@ This will run the cocotb testbench and generate a VCD waveform file.
 ### Viewing Waveforms
 
 ```bash
-gtkwave tb_riscv.vcd
+gtkwave test.vcd
 ```
 
 ## Building for Tiny Tapeout
@@ -153,10 +171,11 @@ The design is configured for automatic GDS generation through GitHub Actions. Pu
 ### Area Utilization
 
 The RISC-V core uses approximately:
-- **Register File**: ~1024 flip-flops (32 registers × 32 bits)
-- **Instruction Memory**: 2048 bits (64 × 32-bit words)
-- **ALU**: Combinational logic for 10 operations
+- **Register File**: 256 flip-flops (16 registers × 16 bits)
+- **Instruction Memory**: 512 bits (32 × 16-bit words)
+- **ALU**: Combinational logic for 6 operations
 - **Control Logic**: Instruction decoder and control signals
+- **Total**: ~70-80% utilization of 3x2 tile (within budget)
 
 ### Timing
 
@@ -166,19 +185,32 @@ The RISC-V core uses approximately:
 
 ### Limitations
 
+- 16-bit data width (reduced from standard 32-bit RISC-V)
+- 16 registers only (vs. 32 in RV32I)
 - No data memory (Load/Store instructions not implemented)
 - No multiplication/division (M extension)
 - No interrupts or exceptions
 - No CSR (Control and Status Registers)
-- Limited instruction memory (64 words)
+- Limited instruction memory (32 words = 64 bytes)
 - Serial instruction loading only (no external program memory)
+- Simplified instruction set
+
+## Design Tradeoffs
+
+This design prioritizes **fitting within Tiny Tapeout constraints** while maintaining a functional processor:
+
+- **16-bit vs 32-bit**: Reduces register file and datapath size by 50%
+- **16 vs 32 registers**: Saves ~50% of register file area
+- **Integrated design**: Single module eliminates inter-module routing overhead
+- **3x2 tiles**: Maximum available space for more features while fitting constraints
 
 ## Future Improvements
 
-Possible enhancements for larger tile sizes:
-- Add data memory interface
-- Implement JALR instruction
-- Add M extension (multiply/divide)
+Possible enhancements for larger tile sizes or future iterations:
+- Expand to 32-bit datapath
+- Add full 32-register file
+- Implement data memory interface
+- Add more RISC-V instructions (shifts, comparisons)
 - Multi-cycle or pipelined execution
 - External memory interface
 - Interrupt support
