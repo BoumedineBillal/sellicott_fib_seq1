@@ -5,7 +5,7 @@
 SIM ?= icarus
 TOPLEVEL_LANG ?= verilog
 SRC_DIR = $(PWD)/../src
-PROJECT_SOURCES = tt_um_sellicott_fib_seq.v fib.v
+PROJECT_SOURCES = tt_um_riscv_core.v riscv_core.v riscv_alu.v riscv_regfile.v
 
 ifneq ($(GATES),yes)
 
@@ -32,11 +32,11 @@ VERILOG_SOURCES += $(PWD)/gate_level_netlist.v
 endif
 
 # Include the testbench sources:
-VERILOG_SOURCES += $(PWD)/tb.v 
-TOPLEVEL = tb
+VERILOG_SOURCES += $(PWD)/tb_riscv.v
+TOPLEVEL = tb_riscv
 
 # MODULE is the basename of the Python test file
-MODULE = test
+MODULE = test_riscv
 
 # include cocotb's make rules to take care of the simulator setup
 include $(shell cocotb-config --makefiles)/Makefile.sim

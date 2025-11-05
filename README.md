@@ -1,76 +1,198 @@
 ![](../../workflows/gds/badge.svg) ![](../../workflows/docs/badge.svg) ![](../../workflows/test/badge.svg)
 
-# Fibonacci Sequence Generator for Columbus SSCS/CAS Workshop
-This is a demonstration Tiny Tapeout project for the workshop series held by the
-[Columbus chapter of IEEE SSCS/CAS](https://r2.ieee.org/columbus-ssccas/blog/2024/01/14/tiny-tapeout-workshop-announcement/).
-The goal of this project is to demonstrate the Tiny Tapeout flow starting from
-a Verilog design to build a GDS file for manufacturing. The project itself is
-quite simple, it generates the Nth number from the Fibonacci sequence by iteratively
-building the sequence each time. For more information look in [info.md](docs/info.md),
-but a schematic of the design is shown here.
+# Simple 32-bit RISC-V Core for Tiny Tapeout
 
-![](docs/tt_um_sellicott_fib_seq_flattened.png)
+A minimal 32-bit RISC-V processor core implementing a subset of the RV32I instruction set, designed to fit within a Tiny Tapeout tile.
 
-The design is quite simple and only uses about 9.5% of the avalible Tiny Tapeout tile area as shown in the GDS render.
+## Features
 
-![](docs/gds_render.png)
+- **Architecture**: 32-bit RISC-V (RV32I subset)
+- **Design**: Single-cycle execution
+- **Register File**: 32 x 32-bit registers (x0 hardwired to 0)
+- **ALU Operations**: ADD, SUB, AND, OR, XOR, SLT, SLTU, SLL, SRL, SRA
+- **Instructions Supported**:
+  - R-type: ADD, SUB, AND, OR, XOR, SLT, SLTU, SLL, SRL, SRA
+  - I-type: ADDI, ANDI, ORI, XORI, SLTI, SLTIU
+  - U-type: LUI, AUIPC
+  - B-type: BEQ, BNE, BLT, BGE
+  - J-type: JAL
+- **Internal Instruction Memory**: 64 x 32-bit words (256 bytes)
+- **Clock Frequency**: 50 MHz (20ns period)
 
-# Testbenches
-The project includes two methods to test its functionality; with testbenches written in Python cocotb
-[cocotb testbench](https://github.com/sellicott/sellicott_fib_seq/blob/main/test/test.py)
-(for Github action based simulation) and Icarus Verilog simulation
-[testbench code](https://github.com/sellicott/sellicott_fib_seq/blob/2b37c8f3a4a0e91710801dfd6ce39c19cdcebc35/test/tb.v#L46)
-for use on local computers.
+## Architecture
 
-> [!NOTE]
-> Icarus Verilog is used for local simulation since the
-> [OSS-CAD-Suite](https://github.com/YosysHQ/oss-cad-suite-build?tab=readme-ov-file) don't currently install a working
-> cocotb implementation on Windows. As we desire to have participants build custom testbenches on their local computers
-> in future workshops, we needed a testbench platform that can be easily used without installing additional tools beyond
-> the basic ones provided in the binary distribution. For Verilog syntax highlighting,
-> I'm using the [Verilog-HDL/SytemVerilog/Bluespec SystemVerilog Extension](https://open-vsx.org/vscode/item?itemName=mshr-h.veriloghdl)
-# Getting Started
-The following instructions describe how to get the tools needed to simulate this project locally on your computer
+The core consists of four main modules:
 
-> [!TIP]
-> We assume that the reader has a basic understanding of how to use git and and have a text editor with reasonable
-> syntax hilighting. If you don't, I recommend using [VS Code](https://code.visualstudio.com/) and following their
-> tutorial on using [git within VS Code](https://code.visualstudio.com/docs/sourcecontrol/intro-to-git).
+1. **riscv_core.v**: Main processor with fetch, decode, execute stages
+2. **riscv_alu.v**: Arithmetic Logic Unit
+3. **riscv_regfile.v**: 32-register file with x0 hardwired to zero
+4. **tt_um_riscv_core.v**: Tiny Tapeout wrapper for I/O mapping
 
-1) Clone this repo: Use git to download this project to somewhere on your computer.
+### Block Diagram
+
 ```
-git clone https://github.com/sellicott/sellicott_fib_seq.git
+┌─────────────────────────────────────────────────┐
+│  Tiny Tapeout Wrapper (tt_um_riscv_core)       │
+│  ┌───────────────────────────────────────────┐ │
+│  │  RISC-V Core (riscv_core)                 │ │
+│  │  ┌──────────┐  ┌──────────┐  ┌─────────┐ │ │
+│  │  │ Register │  │   ALU    │  │ Control │ │ │
+│  │  │   File   │  │          │  │  Logic  │ │ │
+│  │  └──────────┘  └──────────┘  └─────────┘ │ │
+│  │  ┌────────────────────────────────────┐   │ │
+│  │  │  Instruction Memory (64 words)     │   │ │
+│  │  └────────────────────────────────────┘   │ │
+│  └───────────────────────────────────────────┘ │
+└─────────────────────────────────────────────────┘
 ```
-> [!NOTE]
-> If you plan on modifying the design instead of just looking at it, you should
-> ["fork"](https://docs.github.com/en/pull-requests/collaborating-with-pull-requests/working-with-forks/fork-a-repo)
-> the repo instead of cloning it. This will allow you to push your own changes to Github to run the tests and OpenLane
-> in Github actions.
 
-2) [Install OSS-CAD-Suite](https://github.com/YosysHQ/oss-cad-suite-build?tab=readme-ov-file#installation):
-This process will be slightly different depending on your OS. The basic instructions are to download one of the.
-[pre-compiled releases](https://github.com/YosysHQ/oss-cad-suite-build/releases) for your operating system/processor
-type, then extract the file to a location of your choosing.
+## I/O Interface
 
-> [!CAUTION]
-> On Windows, make sure to extract the binaries to a path without spaces. Some of the tools are picky about this.
-> I recommend `C:\oss-cad-suite`
+The design uses Tiny Tapeout's limited I/O pins through a serial instruction loading interface:
 
-3) Startup the CAD Tools: Open up a terminal window (on Windows this is "Command Prompt") and activate
-the OSS-CAD-Suite environment by calling the activate script for your OS. For Linux/Mac this will be:
+### Input Pins (ui_in[7:0])
+- **ui_in[7:6]**: Mode select
+  - `00`: Run mode (execute instructions)
+  - `01`: Load instruction byte 0 (LSB)
+  - `10`: Load instruction byte 1
+  - `11`: Load instruction bytes 2-3 and commit
+- **ui_in[5:0]**: Data/address input (mode-dependent)
+
+### Output Pins (uo_out[7:0])
+- Multiplexed output showing:
+  - PC[7:0] or PC[15:8] (program counter)
+  - ALU_result[7:0] or ALU_result[15:8]
+  - Selection controlled by uio_in[1:0]
+
+### Bidirectional Pins (uio[7:0])
+- **uio_in[1:0]**: Output select (input mode)
+  - `00`: Show PC[7:0]
+  - `01`: Show PC[15:8]
+  - `10`: Show ALU result[7:0]
+  - `11`: Show ALU result[15:8]
+- **uio_out[6:2]**: Destination register address (rd) (output mode)
+- **uio_out[7]**: Halt flag (output mode)
+
+## Usage
+
+### Loading Instructions
+
+Instructions must be loaded into internal memory before execution. Each 32-bit instruction requires 4 loading cycles:
+
+1. Set mode to `01` and provide bits [5:0] of instruction
+2. Set mode to `10` and provide bits [13:8] of instruction
+3. Set mode to `11` and provide bits [21:16] of instruction
+4. Set mode to `11` and provide bits [29:24] of instruction (triggers write)
+
+### Running Programs
+
+After loading instructions, set mode to `00` to begin execution. The processor will execute until:
+- It reaches the end of instruction memory
+- It encounters a NOP instruction (`0x00000013`)
+- The halt flag is set
+
+### Example Program
+
+```assembly
+# Simple addition program
+ADDI x1, x0, 5      # x1 = 5
+ADDI x2, x0, 3      # x2 = 3
+ADD  x3, x1, x2     # x3 = x1 + x2 = 8
+SUB  x4, x1, x2     # x4 = x1 - x2 = 2
+AND  x5, x1, x2     # x5 = x1 & x2 = 1
+NOP                 # Halt
+```
+
+Encoded instructions:
+```
+0x00500093  # ADDI x1, x0, 5
+0x00300113  # ADDI x2, x0, 3
+0x002081B3  # ADD x3, x1, x2
+0x40208233  # SUB x4, x1, x2
+0x0020F2B3  # AND x5, x1, x2
+0x00000013  # NOP (halt)
+```
+
+## Testing
+
+The project includes both Verilog and cocotb Python testbenches:
+
+- **test/tb_riscv.v**: Verilog testbench for Icarus Verilog simulation
+- **test/test_riscv.py**: cocotb Python testbench for GitHub Actions
+
+### Running Tests Locally
+
+With [OSS-CAD-Suite](https://github.com/YosysHQ/oss-cad-suite-build) installed:
+
 ```bash
-source <extracted_location>/oss-cad-suite/environment
+cd test
+make clean
+make
 ```
-For Windows it will be
-```cmd
-<extracted_location>\oss-cad-suite\environment.bat
-```
-If you installed to the recommended location for Windows:
-```cmd
-C:\oss-cad-suite\environment.bat
-```
-At this point your command prompt should change to either `(OSS CAD Suite) <prompt>` or 
-`[OSS CAD Suite] <prompt>` for Linux/Mac and Windows respectively. At this point you can access any
-tools provided by the suite.
 
+This will run the cocotb testbench and generate a VCD waveform file.
 
+### Viewing Waveforms
+
+```bash
+gtkwave tb_riscv.vcd
+```
+
+## Building for Tiny Tapeout
+
+The design is configured for automatic GDS generation through GitHub Actions. Push to your repository and the workflow will:
+
+1. Run RTL simulation tests
+2. Synthesize the design with OpenLane
+3. Generate GDS layout
+4. Run precheck and DRC
+5. Create documentation
+
+## Implementation Details
+
+### Area Utilization
+
+The RISC-V core uses approximately:
+- **Register File**: ~1024 flip-flops (32 registers × 32 bits)
+- **Instruction Memory**: 2048 bits (64 × 32-bit words)
+- **ALU**: Combinational logic for 10 operations
+- **Control Logic**: Instruction decoder and control signals
+
+### Timing
+
+- **Clock Period**: 20ns (50 MHz)
+- **Critical Path**: Register file → ALU → Register file writeback
+- **Target**: Single-cycle execution for all supported instructions
+
+### Limitations
+
+- No data memory (Load/Store instructions not implemented)
+- No multiplication/division (M extension)
+- No interrupts or exceptions
+- No CSR (Control and Status Registers)
+- Limited instruction memory (64 words)
+- Serial instruction loading only (no external program memory)
+
+## Future Improvements
+
+Possible enhancements for larger tile sizes:
+- Add data memory interface
+- Implement JALR instruction
+- Add M extension (multiply/divide)
+- Multi-cycle or pipelined execution
+- External memory interface
+- Interrupt support
+
+## Resources
+
+- [RISC-V Specification](https://riscv.org/technical/specifications/)
+- [Tiny Tapeout Documentation](https://tinytapeout.com/)
+- [OpenLane Documentation](https://openlane.readthedocs.io/)
+
+## License
+
+This project is open source. See LICENSE for details.
+
+## Author
+
+Created for Tiny Tapeout submission.
