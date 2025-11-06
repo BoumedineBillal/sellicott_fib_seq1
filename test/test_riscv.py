@@ -36,21 +36,20 @@ async def test_riscv_core(dut):
 
         dut._log.info(f"Loaded instruction: 0x{instr:04X}")
 
-    # Load test program (12-bit instructions: 6 bits per byte)
-    # Format: [opcode:4][rd:4][rs1/rs2/imm:4] (12 bits total)
-    # Each byte must be 0x00-0x3F
+    # Load test program (16-bit instructions, each byte ≤ 0x3F)
+    # Format: [opcode:4][rd:4][rs1:4][rs2/imm:4]
 
-    # x1 = 5 (ADDI x1, x0, 5) -> 0x115 (12-bit)
-    await load_instruction_16(0x0115)
+    # x1 = 5 (ADDI x1, x0, 5) -> 0x1105
+    await load_instruction_16(0x1105)
 
-    # x2 = 3 (ADDI x2, x0, 3) -> 0x123 (12-bit)
-    await load_instruction_16(0x0123)
+    # x2 = 3 (ADDI x2, x0, 3) -> 0x1203
+    await load_instruction_16(0x1203)
 
-    # x3 = x1 + x2 (ADD x3, x1, x2) -> 0x312 (12-bit)
+    # x3 = x1 + x2 (ADD x3, x1, x2) -> 0x0312
     await load_instruction_16(0x0312)
 
-    # x4 = x1 + x2 (ADD x4, x1, x2) -> 0x412 (12-bit)
-    await load_instruction_16(0x0412)
+    # x4 = x1 - x2 (SUB x4, x1, x2) -> 0x0411
+    await load_instruction_16(0x0411)
 
     # NOP - halt condition (0x0000)
     await load_instruction_16(0x0000)

@@ -49,25 +49,24 @@ module tb_riscv();
         $display("=== 16-bit RISC-V Core Test ===");
         $display("Loading instructions into memory...");
 
-        // Load a simple 12-bit program (6 bits per byte, 12 bits total per instruction):
-        // Instruction format: [opcode:4][rd:4][rs1/rs2/imm:4]
-        // Each byte limited to 0x00-0x3F (6 bits)
+        // Load a simple program with 16-bit instructions (each byte ≤ 0x3F):
+        // Instruction format: [opcode:4][rd:4][rs1:4][rs2/imm:4]
 
-        // Instruction 0: ADDI x1, x0, 5  (opcode=0001, rd=0001, imm=0101)
-        // Bits: 0001_0001_0101 = 0x115, low=0x15, high=0x01
-        load_instruction_16(16'h0115);
+        // Instruction 0: ADDI x1, x0, 5  (opcode=0001, rd=0001, rs1=0000, imm=0101)
+        // Binary: 0001_0001_0000_0101 = 0x1105, low=0x05, high=0x11
+        load_instruction_16(16'h1105);
 
-        // Instruction 1: ADDI x2, x0, 3  (opcode=0001, rd=0010, imm=0011)
-        // Bits: 0001_0010_0011 = 0x123, low=0x23, high=0x01
-        load_instruction_16(16'h0123);
+        // Instruction 1: ADDI x2, x0, 3  (opcode=0001, rd=0010, rs1=0000, imm=0011)
+        // Binary: 0001_0010_0000_0011 = 0x1203, low=0x03, high=0x12
+        load_instruction_16(16'h1203);
 
         // Instruction 2: ADD x3, x1, x2  (opcode=0000, rd=0011, rs1=0001, rs2=0010)
-        // Bits: 0000_0011_0001_0010 (16-bit) -> use 12-bit: 0011_0001_0010 = 0x312
+        // Binary: 0000_0011_0001_0010 = 0x0312, low=0x12, high=0x03
         load_instruction_16(16'h0312);
 
-        // Instruction 3: ADD x4, x1, x2  (opcode=0000, rd=0100, rs1=0001, rs2=0010)
-        // Bits: 0100_0001_0010 = 0x412 (assuming truncated format)
-        load_instruction_16(16'h0412);
+        // Instruction 3: SUB x4, x1, x2  (opcode=0000, rd=0100, rs1=0001, rs2=0001 for SUB)
+        // Binary: 0000_0100_0001_0001 = 0x0411, low=0x11, high=0x04
+        load_instruction_16(16'h0411);
 
         // Instruction 4: NOP (0x0000) - will halt
         load_instruction_16(16'h0000);
