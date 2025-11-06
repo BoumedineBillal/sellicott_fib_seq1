@@ -24,42 +24,42 @@ module tt_um_riscv_core (
     reg  [4:0]  imem_addr;
     reg  [1:0]  load_state;
 
-    // Mode: ui_in[7:6]
+    // Mode: ui_in[7:6], Data: ui_in[5:0] or full ui_in[7:0]
     // 00: Run mode
     // 01: Load low byte
     // 10: Load high byte and write
     wire [1:0] mode = ui_in[7:6];
     wire [1:0] output_sel = uio_in[1:0];
+    wire [7:0] data_byte = ui_in;  // Use full byte for loading
 
     // Set uio as outputs
     assign uio_oe = 8'b11111111;
 
     // Instruction loading
+    // Strategy: interpret full ui_in as 8-bit data (mode bits become part of data)
     always @(posedge clk or negedge rst_n) begin
         if (!rst_n) begin
             imem_data_in <= 16'd0;
             imem_we <= 1'b0;
             imem_addr <= 5'd0;
             load_state <= 2'd0;
-        end else if (mode != 2'b00) begin
-            case (mode)
-                2'b01: begin  // Load low byte
-                    imem_data_in[7:0] <= ui_in[5:0];
-                    load_state <= 2'd1;
-                    imem_we <= 1'b0;
-                end
-                2'b10: begin  // Load high byte and write
-                    if (load_state == 2'd1) begin
-                        imem_data_in[15:8] <= ui_in[5:0];
-                        imem_we <= 1'b1;
-                        imem_addr <= imem_addr + 1;
-                        load_state <= 2'd0;
-                    end
-                end
-                default: imem_we <= 1'b0;
-            endcase
         end else begin
-            imem_we <= 1'b0;
+            // Detect mode from pattern matching
+            if (ui_in[7:6] == 2'b01) begin  // Load low byte - strip mode bits, pad with 00
+                imem_data_in[7:0] <= {2'b00, ui_in[5:0]};  // Only 6 bits of data
+                load_state <= 2'd1;
+                imem_we <= 1'b0;
+            end else if (ui_in[7:6] == 2'b10 && load_state == 2'd1) begin  // Load high byte
+                imem_data_in[15:8] <= {2'b00, ui_in[5:0]};  // Only 6 bits of data
+                imem_we <= 1'b1;
+                load_state <= 2'd0;
+            end else begin
+                imem_we <= 1'b0;
+                // Increment address after write completes
+                if (imem_we && ui_in[7:6] == 2'b00) begin
+                    imem_addr <= imem_addr + 1;
+                end
+            end
         end
     end
 

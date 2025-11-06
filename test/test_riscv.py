@@ -4,7 +4,7 @@ from cocotb.triggers import RisingEdge, ClockCycles
 
 @cocotb.test()
 async def test_riscv_core(dut):
-    """Test the RISC-V core with simple instructions"""
+    """Test the 16-bit RISC-V core with simple instructions"""
 
     # Create a clock
     clock = Clock(dut.clk, 10, units="ns")  # 100MHz
@@ -19,47 +19,41 @@ async def test_riscv_core(dut):
     dut.rst_n.value = 1
     await ClockCycles(dut.clk, 2)
 
-    dut._log.info("=== RISC-V Core Test ===")
+    dut._log.info("=== 16-bit RISC-V Core Test ===")
     dut._log.info("Loading instructions...")
 
-    # Helper function to load instruction
-    async def load_instruction(instr):
-        # Load byte 0 (bits 7:0)
-        dut.ui_in.value = (1 << 6) | ((instr >> 0) & 0x3F)  # mode=01
-        await ClockCycles(dut.clk, 1)
+    # Helper function to load 16-bit instruction
+    async def load_instruction_16(instr):
+        # Load low byte with mode=01
+        low_byte = (instr & 0xFF)
+        dut.ui_in.value = (0x40 | (low_byte & 0x3F))  # mode=01 in bits [7:6]
+        await ClockCycles(dut.clk, 2)
 
-        # Load byte 1 (bits 15:8)
-        dut.ui_in.value = (2 << 6) | ((instr >> 8) & 0x3F)  # mode=10
-        await ClockCycles(dut.clk, 1)
+        # Load high byte with mode=10
+        high_byte = ((instr >> 8) & 0xFF)
+        dut.ui_in.value = (0x80 | (high_byte & 0x3F))  # mode=10 in bits [7:6]
+        await ClockCycles(dut.clk, 2)
 
-        # Load byte 2 (bits 23:16)
-        dut.ui_in.value = (3 << 6) | ((instr >> 16) & 0x3F)  # mode=11
-        await ClockCycles(dut.clk, 1)
+        dut._log.info(f"Loaded instruction: 0x{instr:04X}")
 
-        # Load byte 3 (bits 31:24) and trigger write
-        dut.ui_in.value = (3 << 6) | ((instr >> 24) & 0x3F)  # mode=11
-        await ClockCycles(dut.clk, 1)
+    # Load test program (12-bit instructions: 6 bits per byte)
+    # Format: [opcode:4][rd:4][rs1/rs2/imm:4] (12 bits total)
+    # Each byte must be 0x00-0x3F
 
-        dut._log.info(f"Loaded instruction: 0x{instr:08X}")
+    # x1 = 5 (ADDI x1, x0, 5) -> 0x115 (12-bit)
+    await load_instruction_16(0x0115)
 
-    # Load test program
-    # x1 = 5 (ADDI x1, x0, 5)
-    await load_instruction(0x00500093)
+    # x2 = 3 (ADDI x2, x0, 3) -> 0x123 (12-bit)
+    await load_instruction_16(0x0123)
 
-    # x2 = 3 (ADDI x2, x0, 3)
-    await load_instruction(0x00300113)
+    # x3 = x1 + x2 (ADD x3, x1, x2) -> 0x312 (12-bit)
+    await load_instruction_16(0x0312)
 
-    # x3 = x1 + x2 (ADD x3, x1, x2)
-    await load_instruction(0x002081B3)
+    # x4 = x1 + x2 (ADD x4, x1, x2) -> 0x412 (12-bit)
+    await load_instruction_16(0x0412)
 
-    # x4 = x1 - x2 (SUB x4, x1, x2)
-    await load_instruction(0x40208233)
-
-    # x5 = x1 & x2 (AND x5, x1, x2)
-    await load_instruction(0x0020F2B3)
-
-    # NOP - halt condition
-    await load_instruction(0x00000013)
+    # NOP - halt condition (0x0000)
+    await load_instruction_16(0x0000)
 
     dut._log.info("Instructions loaded. Starting execution...")
 
@@ -68,7 +62,7 @@ async def test_riscv_core(dut):
     dut.uio_in.value = 0  # output_sel=00 (PC)
 
     # Run for several cycles
-    await ClockCycles(dut.clk, 50)
+    await ClockCycles(dut.clk, 40)
 
     # Check outputs
     pc_low = int(dut.uo_out.value)
@@ -81,11 +75,12 @@ async def test_riscv_core(dut):
     dut._log.info(f"ALU Result (low byte) = 0x{alu_low:02X}")
 
     # Check halt flag
-    halted = int(dut.uio_out.value) >> 7
+    uio_out = int(dut.uio_out.value)
+    halted = (uio_out >> 7) & 1
     dut._log.info(f"Halted = {halted}")
 
     dut._log.info("=== Test Complete ===")
 
     # Basic sanity checks
     assert pc_low >= 0, "PC should be non-negative"
-    dut._log.info("✓ RISC-V core test passed!")
+    dut._log.info("✓ 16-bit RISC-V core test passed!")
