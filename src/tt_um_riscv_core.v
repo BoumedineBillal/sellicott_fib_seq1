@@ -49,16 +49,13 @@ module tt_um_riscv_core (
                 imem_data_in[7:0] <= {2'b00, ui_in[5:0]};  // Only 6 bits of data
                 load_state <= 2'd1;
                 imem_we <= 1'b0;
-            end else if (ui_in[7:6] == 2'b10 && load_state == 2'd1) begin  // Load high byte
+            end else if (ui_in[7:6] == 2'b10 && load_state == 2'd1) begin  // Load high byte and write
                 imem_data_in[15:8] <= {2'b00, ui_in[5:0]};  // Only 6 bits of data
                 imem_we <= 1'b1;
                 load_state <= 2'd0;
+                imem_addr <= imem_addr + 1;  // Increment address immediately after write
             end else begin
                 imem_we <= 1'b0;
-                // Increment address after write completes
-                if (imem_we && ui_in[7:6] == 2'b00) begin
-                    imem_addr <= imem_addr + 1;
-                end
             end
         end
     end
